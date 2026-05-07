@@ -39,7 +39,7 @@ That framing is honest, implementation-friendly, and flexible enough to include 
 3. At each rebalance date, estimate expected returns μ and covariance Σ.
 4. Solve sparse selection:
 
-```math
+```text
 \min_x \; q x^\top \Sigma x - \mu^\top x + A(\mathbf{1}^\top x - K)^2,
 \qquad x_i \in \{0,1\}.
 ```

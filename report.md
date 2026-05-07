@@ -30,7 +30,7 @@ The starting point is Markowitz mean-variance portfolio selection, where an inve
 
 QUBO formulations are standard tools for binary combinatorial optimization. Lucas surveys how many NP-style optimization problems can be written as Ising Hamiltonians or QUBO problems [Lucas 2014]. Qiskit Finance gives a directly relevant binary portfolio-selection formulation:
 
-```math
+```text
 \min_x \; q x^\top \Sigma x - \mu^\top x
 ```
 
@@ -78,90 +78,90 @@ At each rebalance date, suppose there are `n` tradable assets. Let:
 
 The project uses an equal-weight sparse portfolio:
 
-```math
+```text
 w_i = \frac{x_i}{K}.
 ```
 
 The expected portfolio return is:
 
-```math
+```text
 R(x) = \frac{\mu^\top x}{K}.
 ```
 
 The portfolio variance is:
 
-```math
+```text
 V(x) = \frac{x^\top \Sigma x}{K^2}.
 ```
 
 If `q_p` is the risk aversion of the equal-weight portfolio actually traded, the natural objective is:
 
-```math
+```text
 \min_x \; q_p \frac{x^\top \Sigma x}{K^2} - \frac{\mu^\top x}{K}.
 ```
 
 Multiplying by the positive constant `K` gives an equivalent binary-selection objective:
 
-```math
+```text
 \min_x \; \frac{q_p}{K} x^\top \Sigma x - \mu^\top x.
 ```
 
 Therefore, in the code and experiments, the displayed `q` is interpreted as portfolio-level risk aversion `q_p`, while the QUBO is built using:
 
-```math
+```text
 q_{\mathrm{binary}} = \frac{q_p}{K}.
 ```
 
 The constrained binary mean-variance problem is:
 
-```math
+```text
 \min_x \; q_{\mathrm{binary}} x^\top \Sigma x - \mu^\top x
 ```
 
 subject to:
 
-```math
+```text
 \mathbf{1}^\top x = K
 ```
 
 and:
 
-```math
+```text
 x_i \in \{0,1\}.
 ```
 
 To convert this into a QUBO, the cardinality constraint is encoded with a quadratic penalty:
 
-```math
+```text
 E(x) = q_{\mathrm{binary}} x^\top \Sigma x - \mu^\top x + A(\mathbf{1}^\top x - K)^2.
 ```
 
 For binary variables, `x_i^2 = x_i`, so:
 
-```math
+```text
 (\mathbf{1}^\top x - K)^2
 = (1 - 2K)\sum_i x_i + 2\sum_{i<j} x_i x_j + K^2.
 ```
 
 Using an upper-triangular QUBO convention:
 
-```math
+```text
 E(x) = \sum_{i \le j} Q_{ij} x_i x_j + \mathrm{const},
 ```
 
 the coefficients are:
 
-```math
+```text
 Q_{ii} = q_{\mathrm{binary}}\Sigma_{ii} - \mu_i + A(1 - 2K),
 ```
 
-```math
+```text
 Q_{ij} = 2q_{\mathrm{binary}}\Sigma_{ij} + 2A, \qquad i < j,
 ```
 
 with constant offset:
 
-```math
+```text
 \mathrm{const} = AK^2.
 ```
 
@@ -169,7 +169,7 @@ Penalty scaling is part of the experiment. If `A` is too small, the QUBO optimum
 
 The practical penalty rule used in the experiments is:
 
-```math
+```text
 A = c\left(q_{\mathrm{binary}}\sum_{ij}|\Sigma_{ij}| + \sum_i|\mu_i|\right),
 ```
 

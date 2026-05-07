@@ -36,16 +36,16 @@ That framing is honest, implementation-friendly, and flexible enough to include 
    - LASSO / elastic net
    - random forest
    - gradient boosting
-3. At each rebalance date, estimate expected returns $\mu$ and covariance $\Sigma$.
+3. At each rebalance date, estimate expected returns μ and covariance Σ.
 4. Solve sparse selection:
 
-   $$
-   \min_x \; q x^\top \Sigma x - \mu^\top x + A(\mathbf{1}^\top x - K)^2,
-   \qquad x_i \in \{0,1\}.
-   $$
+```math
+\min_x \; q x^\top \Sigma x - \mu^\top x + A(\mathbf{1}^\top x - K)^2,
+\qquad x_i \in \{0,1\}.
+```
 
 5. Benchmark solvers:
-   - exact brute force for small $n$
+   - exact brute force for small n
    - greedy/local-search baseline
    - simulated annealing / quantum-inspired sampler
    - optionally D-Wave Ocean or OpenJij if installation is painless
@@ -72,7 +72,7 @@ Phase 1 has started with a small tested package:
 - `scripts/phase3_backtest_historical.py`: monthly walk-forward historical-mean backtest.
 - `scripts/phase3_backtest_lasso.py`: monthly walk-forward LASSO forecast backtest.
 - `scripts/phase3_backtest_gradient_boosting.py`: monthly walk-forward gradient boosting forecast backtest.
-- `scripts/phase3_sweep_historical.py`: $q$/$K$ sweep for historical-mean backtests.
+- `scripts/phase3_sweep_historical.py`: q/K sweep for historical-mean backtests.
 - `scripts/phase4_make_figures.py`: creates presentation-ready PNG figures from generated CSVs.
 - `scripts/phase5_solver_scaling.py`: synthetic solver runtime/objective-gap scaling benchmark.
 - `results/phase1/`: generated Phase 1 CSV outputs.

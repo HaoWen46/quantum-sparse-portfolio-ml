@@ -14,7 +14,7 @@ The main conclusion is therefore not that quantum-inspired optimization "wins" i
 
 ## 1. Introduction
 
-Portfolio optimization is a natural setting for machine learning and combinatorial optimization. Machine learning methods can estimate expected returns or relative rankings, while portfolio construction translates those signals into a tradable decision. Classical mean-variance optimization, introduced by Markowitz, balances expected return against covariance-based risk. In its continuous form this can be treated as a quadratic optimization problem. The problem becomes more computationally interesting when we require a sparse portfolio: select exactly `K` assets from a larger universe.
+Portfolio optimization is a natural setting for machine learning and combinatorial optimization. Machine learning methods can estimate expected returns or relative rankings, while portfolio construction translates those signals into a tradable decision. Classical mean-variance optimization, introduced by Markowitz, balances expected return against covariance-based risk. In its continuous form this can be treated as a quadratic optimization problem. The problem becomes more computationally interesting when we require a sparse portfolio: select exactly $K$ assets from a larger universe.
 
 This sparsity requirement is useful for a course project because it creates a direct bridge between financial machine learning and computer science. The forecast stage can use standard course-covered methods such as LASSO, elastic net, random forests, or gradient boosting. The optimization stage becomes a binary quadratic problem, which can be expressed as a QUBO and attacked with exact solvers, local search, and annealing-style samplers.
 
@@ -26,13 +26,15 @@ This framing keeps the project honest. Financial return forecasts are noisy, and
 
 ## 2. Related Work
 
-The starting point is Markowitz mean-variance portfolio selection, where an investor trades off expected return against portfolio variance [Markowitz 1952]. This project keeps the same return-risk structure but adds a cardinality constraint: exactly `K` assets should be selected.
+The starting point is Markowitz mean-variance portfolio selection, where an investor trades off expected return against portfolio variance [Markowitz 1952]. This project keeps the same return-risk structure but adds a cardinality constraint: exactly $K$ assets should be selected.
 
 QUBO formulations are standard tools for binary combinatorial optimization. Lucas surveys how many NP-style optimization problems can be written as Ising Hamiltonians or QUBO problems [Lucas 2014]. Qiskit Finance gives a directly relevant binary portfolio-selection formulation:
 
-`min_x q x' Sigma x - mu' x`
+$$
+\min_x \; q x^\top \Sigma x - \mu^\top x
+$$
 
-subject to a budget or cardinality constraint such as `1' x = K` [Qiskit Finance 2026]. The equality constraint is then encoded as a quadratic penalty. This project implements that same basic structure and validates it by exact enumeration.
+subject to a budget or cardinality constraint such as $\mathbf{1}^\top x = K$ [Qiskit Finance 2026]. The equality constraint is then encoded as a quadratic penalty. This project implements that same basic structure and validates it by exact enumeration.
 
 Recent quantum and quantum-inspired portfolio papers motivate the project but also warn against overclaiming. Sakuler et al. test portfolio optimization with quantum annealing in a real-world banking setting and emphasize that penalty tuning and comparison against classical baselines are essential [Sakuler et al. 2025]. Lu et al. study quantum-inspired portfolio optimization in the QUBO framework and similarly emphasize preprocessing, two-stage search, and penalty estimation [Lu et al. 2024]. Palmer et al. discuss practical constraints such as investment bands, target volatility, and cardinality-constrained index tracking [Palmer et al. 2021; Palmer et al. 2022]. Buonaiuto et al. study portfolio optimization on real quantum devices, but their main value for this project is methodological caution: small instances, penalty choices, simulator-vs-hardware differences, and hyperparameter settings matter [Buonaiuto et al. 2023].
 
@@ -46,13 +48,13 @@ The strongest argument for quantum-inspired portfolio optimization is not that q
 
 Examples include:
 
-- select exactly `K` assets,
+- select exactly $K$ assets,
 - limit the number of trades,
 - enforce sector or asset-class buckets,
 - model lot sizes or minimum position sizes,
 - choose among transaction decisions across multiple rebalance dates.
 
-These constraints turn portfolio construction into a combinatorial search problem. A simple cardinality constraint has `binom(n, K)` feasible portfolios. A fully unconstrained binary representation has `2^n` possible states. That exponential search space is exactly why QUBO and Ising formulations are attractive: they express the decision problem as an energy landscape over binary variables, which is the native language of quantum annealing and a common target for gate-model variational algorithms such as QAOA or VQE.
+These constraints turn portfolio construction into a combinatorial search problem. A simple cardinality constraint has $\binom{n}{K}$ feasible portfolios. A fully unconstrained binary representation has $2^n$ possible states. That exponential search space is exactly why QUBO and Ising formulations are attractive: they express the decision problem as an energy landscape over binary variables, which is the native language of quantum annealing and a common target for gate-model variational algorithms such as QAOA or VQE.
 
 In a future where quantum hardware becomes more reliable and larger-scale, the potential benefit is not that it will magically create better expected returns. Forecasting remains an econometric and machine-learning problem. The potential benefit is that quantum or hybrid quantum-classical solvers may explore difficult constrained decision spaces differently from classical heuristics, especially when a financial institution needs many near-optimal feasible portfolios under messy constraints. That matters because real portfolio construction is often less about one perfect optimum and more about finding good portfolios under many operational, regulatory, and client-specific restrictions.
 
@@ -66,79 +68,112 @@ For this reason, QUBO is valuable even before quantum advantage arrives. It forc
 
 ## 3. Problem Formulation
 
-At each rebalance date, suppose there are `n` tradable assets. Let:
+At each rebalance date, suppose there are $n$ tradable assets. Let:
 
-- `x_i in {0,1}` indicate whether asset `i` is selected,
-- `K` be the target number of selected assets,
-- `mu_i` be the predicted next-period expected return or score,
-- `Sigma` be the covariance matrix estimated from trailing returns,
-- `q` be the risk-aversion parameter.
+- $x_i \in \{0,1\}$ indicate whether asset $i$ is selected,
+- $K$ be the target number of selected assets,
+- $\mu_i$ be the predicted next-period expected return or score,
+- $\Sigma$ be the covariance matrix estimated from trailing returns,
+- $q$ be the risk-aversion parameter.
 
 The project uses an equal-weight sparse portfolio:
 
-`w_i = x_i / K`.
+$$
+w_i = \frac{x_i}{K}.
+$$
 
 The expected portfolio return is:
 
-`R(x) = mu' x / K`.
+$$
+R(x) = \frac{\mu^\top x}{K}.
+$$
 
 The portfolio variance is:
 
-`V(x) = x' Sigma x / K^2`.
+$$
+V(x) = \frac{x^\top \Sigma x}{K^2}.
+$$
 
-If `q_p` is the risk aversion of the equal-weight portfolio actually traded, the natural objective is:
+If $q_p$ is the risk aversion of the equal-weight portfolio actually traded, the natural objective is:
 
-`min_x q_p x' Sigma x / K^2 - mu' x / K`.
+$$
+\min_x \; q_p \frac{x^\top \Sigma x}{K^2} - \frac{\mu^\top x}{K}.
+$$
 
-Multiplying by the positive constant `K` gives an equivalent binary-selection objective:
+Multiplying by the positive constant $K$ gives an equivalent binary-selection objective:
 
-`min_x (q_p / K) x' Sigma x - mu' x`.
+$$
+\min_x \; \frac{q_p}{K} x^\top \Sigma x - \mu^\top x.
+$$
 
-Therefore, in the code and experiments, the displayed `q` is interpreted as portfolio-level risk aversion `q_p`, while the QUBO is built using:
+Therefore, in the code and experiments, the displayed $q$ is interpreted as portfolio-level risk aversion $q_p$, while the QUBO is built using:
 
-`q_binary = q_p / K`.
+$$
+q_{\mathrm{binary}} = \frac{q_p}{K}.
+$$
 
 The constrained binary mean-variance problem is:
 
-`min_x q_binary x' Sigma x - mu' x`
+$$
+\min_x \; q_{\mathrm{binary}} x^\top \Sigma x - \mu^\top x
+$$
 
 subject to:
 
-`1' x = K`
+$$
+\mathbf{1}^\top x = K
+$$
 
 and:
 
-`x_i in {0,1}`.
+$$
+x_i \in \{0,1\}.
+$$
 
 To convert this into a QUBO, the cardinality constraint is encoded with a quadratic penalty:
 
-`E(x) = q_binary x' Sigma x - mu' x + A (1' x - K)^2`.
+$$
+E(x) = q_{\mathrm{binary}} x^\top \Sigma x - \mu^\top x + A(\mathbf{1}^\top x - K)^2.
+$$
 
-For binary variables, `x_i^2 = x_i`, so:
+For binary variables, $x_i^2 = x_i$, so:
 
-`(1' x - K)^2 = (1 - 2K) sum_i x_i + 2 sum_{i<j} x_i x_j + K^2`.
+$$
+(\mathbf{1}^\top x - K)^2
+= (1 - 2K)\sum_i x_i + 2\sum_{i<j} x_i x_j + K^2.
+$$
 
 Using an upper-triangular QUBO convention:
 
-`E(x) = sum_{i <= j} Q_ij x_i x_j + const`,
+$$
+E(x) = \sum_{i \le j} Q_{ij} x_i x_j + \mathrm{const},
+$$
 
 the coefficients are:
 
-`Q_ii = q_binary Sigma_ii - mu_i + A(1 - 2K)`,
+$$
+Q_{ii} = q_{\mathrm{binary}}\Sigma_{ii} - \mu_i + A(1 - 2K),
+$$
 
-`Q_ij = 2 q_binary Sigma_ij + 2A`, for `i < j`,
+$$
+Q_{ij} = 2q_{\mathrm{binary}}\Sigma_{ij} + 2A, \qquad i < j,
+$$
 
 with constant offset:
 
-`const = A K^2`.
+$$
+\mathrm{const} = AK^2.
+$$
 
-Penalty scaling is part of the experiment. If `A` is too small, the QUBO optimum can violate the desired cardinality. If `A` is too large, the feasibility penalty dominates the return-risk objective and makes low-energy feasible portfolios harder for approximate solvers to distinguish.
+Penalty scaling is part of the experiment. If $A$ is too small, the QUBO optimum can violate the desired cardinality. If $A$ is too large, the feasibility penalty dominates the return-risk objective and makes low-energy feasible portfolios harder for approximate solvers to distinguish.
 
 The practical penalty rule used in the experiments is:
 
-`A = c * (q_binary sum_ij |Sigma_ij| + sum_i |mu_i|)`,
+$$
+A = c\left(q_{\mathrm{binary}}\sum_{ij}|\Sigma_{ij}| + \sum_i|\mu_i|\right),
+$$
 
-where `c` is a multiplier swept in Phase 1 and set to `0.1` in the main backtests.
+where $c$ is a multiplier swept in Phase 1 and set to `0.1` in the main backtests.
 
 ## 4. Data And Forecasting
 
@@ -152,7 +187,7 @@ Three forecasting approaches are used in the current report.
 
 ### 4.1 Historical-Mean Forecast
 
-The historical-mean model estimates `mu` as the trailing average daily return over a 252-trading-day lookback window. This is not a sophisticated ML model, but it is an important baseline because it separates the optimizer from forecast-model complexity.
+The historical-mean model estimates $\mu$ as the trailing average daily return over a 252-trading-day lookback window. This is not a sophisticated ML model, but it is an important baseline because it separates the optimizer from forecast-model complexity.
 
 ### 4.2 LASSO Forecast
 
@@ -175,9 +210,9 @@ The current implementation also supports elastic net and random forest regressor
 
 The package implements several solvers for the same sparse-selection problem:
 
-1. Exact constrained enumeration: enumerates all `K`-asset combinations and finds the true constrained optimum.
+1. Exact constrained enumeration: enumerates all $K$-asset combinations and finds the true constrained optimum.
 2. Exact full-QUBO enumeration: enumerates all binary vectors and checks the penalized QUBO optimum.
-3. Top-K by forecast: selects the `K` assets with the largest `mu_i`, ignoring covariance.
+3. Top-K by forecast: selects the $K$ assets with the largest $\mu_i$, ignoring covariance.
 4. Greedy forward selection: builds a basket one asset at a time by improving the risk-adjusted objective.
 5. Local search with swaps: starts from a feasible basket and repeatedly swaps one selected asset for one unselected asset if the objective improves.
 6. In-house simulated annealing: flips QUBO bits according to a cooling schedule.
@@ -222,7 +257,7 @@ Figure:
 
 The latest-date snapshot connects real ETF forecasts and covariance estimates to the QUBO optimizer.
 
-For the historical-mean snapshot, with `K = 5`, portfolio-level `q = 10`, and binary-selection `q = 2`, the exact/local/greedy solution selects:
+For the historical-mean snapshot, with $K = 5$, portfolio-level $q = 10$, and binary-selection $q = 2$, the exact/local/greedy solution selects:
 
 `IWM, EEM, DBC, USO, XLK`.
 
@@ -248,8 +283,8 @@ These snapshots support the idea that simple top-K ranking can be quite differen
 
 The main backtests use monthly rebalancing. At each rebalance date:
 
-1. estimate `mu` using only past data,
-2. estimate `Sigma` from trailing returns using Ledoit-Wolf shrinkage,
+1. estimate $\mu$ using only past data,
+2. estimate $\Sigma$ from trailing returns using Ledoit-Wolf shrinkage,
 3. solve the sparse selection problem,
 4. hold an equal-weight portfolio of selected assets until the next rebalance,
 5. record realized daily returns, turnover, feasibility, objective gaps, and performance metrics.
@@ -283,9 +318,9 @@ Setup:
 - monthly rebalances from 2018 onward,
 - forecast: trailing 252-day historical mean,
 - covariance: Ledoit-Wolf,
-- `K = 5`,
-- portfolio-level `q = 10`,
-- binary-selection `q = 2`,
+- $K = 5$,
+- portfolio-level $q = 10$,
+- binary-selection $q = 2$,
 - penalty multiplier: `0.1`,
 - solvers: exact, top-K, local search, `neal`.
 
@@ -319,9 +354,9 @@ Setup:
 - forecast: LASSO on lagged returns and rolling volatility,
 - target: 5-day forward return,
 - covariance: Ledoit-Wolf,
-- `K = 5`,
-- portfolio-level `q = 10`,
-- binary-selection `q = 2`,
+- $K = 5$,
+- portfolio-level $q = 10$,
+- binary-selection $q = 2$,
 - solvers: exact, top-K, local search.
 
 | Strategy | Annual Return | Annual Volatility | Sharpe | Max Drawdown | Mean Turnover | Mean Objective Gap |
@@ -344,7 +379,7 @@ This result is useful rather than embarrassing. It shows that the optimizer is n
 
 ### 7.3 Gradient Boosting Robustness Backtest
 
-The gradient boosting run uses the same 20-ETF universe, monthly rebalancing from 2020 onward, 5-day forward-return target, Ledoit-Wolf covariance, `K = 5`, and portfolio-level `q = 10`.
+The gradient boosting run uses the same 20-ETF universe, monthly rebalancing from 2020 onward, 5-day forward-return target, Ledoit-Wolf covariance, $K = 5$, and portfolio-level $q = 10$.
 
 | Strategy | Annual Return | Annual Volatility | Sharpe | Max Drawdown | Mean Turnover | Mean Objective Gap |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -364,8 +399,8 @@ This robustness check sits between the historical-mean result and the LASSO coun
 
 A historical-mean q/K sweep compares top-K ranking with local search for:
 
-- `K in {3, 5, 8}`,
-- portfolio-level `q in {1, 3, 10, 30}`.
+- $K \in \{3, 5, 8\}$,
+- portfolio-level $q \in \{1, 3, 10, 30\}$.
 
 Figure:
 
@@ -373,9 +408,9 @@ Figure:
 
 Key patterns:
 
-- For `K = 3`, top-K wins Sharpe for all tested risk-aversion values.
-- For `K = 5`, local search wins Sharpe at `q = 10` and `q = 30`.
-- For `K = 8`, local search wins at `q = 10`.
+- For $K = 3$, top-K wins Sharpe for all tested risk-aversion values.
+- For $K = 5$, local search wins Sharpe at $q = 10$ and $q = 30$.
+- For $K = 8$, local search wins at $q = 10$.
 - The optimizer helps most when the portfolio has enough assets for diversification and the risk-aversion parameter is strong enough to matter.
 - Very high risk aversion can help a moderate-cardinality defensive basket, but can become too conservative in other regimes.
 
@@ -405,11 +440,11 @@ The local-search optimizer frequently selects defensive or diversifying ETFs suc
 
 The final experiment benchmarks solver runtime and objective gaps on synthetic QUBO instances with increasing asset counts:
 
-- `n in {8, 10, 12, 14, 16, 18, 20}`,
-- `K = 5`,
-- three random seeds per `n`,
+- $n \in \{8, 10, 12, 14, 16, 18, 20\}$,
+- $K = 5$,
+- three random seeds per $n$,
 - exact constrained enumeration as the objective-gap oracle,
-- exact full-QUBO enumeration only through `n = 16`,
+- exact full-QUBO enumeration only through $n = 16$,
 - top-K, greedy, local search, in-house simulated annealing, and `neal`.
 
 Figures:
@@ -418,9 +453,9 @@ Figures:
 
 ![Solver gap scaling](results/figures/solver_gap_scaling.png)
 
-The runtime plot shows the expected scaling pattern. Top-K is essentially instantaneous because it only sorts forecasts. Greedy and local search remain very fast. Exact constrained enumeration grows with the number of `K`-combinations, while exact full-QUBO enumeration grows much more quickly because it must enumerate all `2^n` binary vectors. In the experiment, exact full-QUBO enumeration is already around `3.48` seconds by `n = 16`, so it is not run for `n = 18` or `n = 20`.
+The runtime plot shows the expected scaling pattern. Top-K is essentially instantaneous because it only sorts forecasts. Greedy and local search remain very fast. Exact constrained enumeration grows with the number of $K$-combinations, while exact full-QUBO enumeration grows much more quickly because it must enumerate all $2^n$ binary vectors. In the experiment, exact full-QUBO enumeration is already around `3.48` seconds by $n = 16$, so it is not run for $n = 18$ or $n = 20$.
 
-The objective-gap plot reinforces the practical role of local search. In this synthetic benchmark, local search is near-exact and has zero mean gap at most tested sizes. Greedy is also strong but has small gaps at larger `n`. The generic annealing baselines remain feasible but produce larger objective gaps under the simple default settings used here.
+The objective-gap plot reinforces the practical role of local search. In this synthetic benchmark, local search is near-exact and has zero mean gap at most tested sizes. Greedy is also strong but has small gaps at larger $n$. The generic annealing baselines remain feasible but produce larger objective gaps under the simple default settings used here.
 
 This strengthens the computer science story: exact solvers are useful for validation, while local search is the most competitive practical baseline in the current implementation. Annealing-style methods are interesting and QUBO-compatible, but they require tuning before they can be claimed as strong optimizers.
 
@@ -436,7 +471,7 @@ Third, solver quality and financial performance are different things. A solver c
 
 Fourth, the annealing-style solver is feasible but not dominant. `neal` produces feasible QUBO samples, but in the historical backtest it has higher turnover and lower Sharpe than exact/local search. This suggests that future work should include turnover penalties or better annealing tuning before presenting annealing as a competitive practical solver.
 
-Finally, the q/K sweep shows that the optimizer's value is regime-dependent. QUBO helps when `K` is large enough to permit diversification and when risk aversion is strong enough to affect selection. For very small sparse portfolios, top-K ranking can be difficult to beat.
+Finally, the q/K sweep shows that the optimizer's value is regime-dependent. QUBO helps when $K$ is large enough to permit diversification and when risk aversion is strong enough to affect selection. For very small sparse portfolios, top-K ranking can be difficult to beat.
 
 The quantum-computing interpretation should be just as careful. Quantum methods are potentially better suited to this family of problems because the mathematical object is already an energy minimization problem over binary variables. Quantum annealers are built around energy landscapes, and gate-model variational methods also reduce many optimization tasks to repeated preparation and measurement of low-energy states. In principle, this may be helpful when the feasible set is huge, constraints are numerous, and the user values high-quality candidate portfolios rather than a single closed-form estimator.
 
@@ -460,14 +495,18 @@ This project has several limitations.
 
 The most useful extensions are:
 
-1. Extend solver scaling to larger `K` or more random seeds if the presentation needs a deeper solver benchmark.
+1. Extend solver scaling to larger $K$ or more random seeds if the presentation needs a deeper solver benchmark.
 2. Add a QUBO-compatible turnover penalty:
 
-   `C sum_i (x_i - x_prev_i)^2`,
+   $$
+   C\sum_i (x_i - x^{\mathrm{prev}}_i)^2,
+   $$
 
    which expands into a diagonal adjustment:
 
-   `Q_ii += C (1 - 2 x_prev_i)`.
+   $$
+   Q_{ii} \leftarrow Q_{ii} + C(1 - 2x^{\mathrm{prev}}_i).
+   $$
 
 3. Test a two-stage hybrid method: QUBO selects the sparse set, then a continuous optimizer assigns weights.
 4. Explore an index-tracking variant where the goal is to approximate a benchmark with a sparse subset.
